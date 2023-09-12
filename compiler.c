@@ -62,16 +62,17 @@ char *ReplaceReplacements(char *line)
         // check if it is a digit
         else if (i == 0 && line[0] > 48 && line[0] < 58) // If it is a number
         {
-            tokenList[ReplacementIndex].type = "number"; // assign the type of the next token
+            tokenList[ReplacementIndex].type = "number"; // assign the type of the next token to number
             char number[256];
             int numberIndex = 0;
-            // check if the next character is a number
+            // check if the next character is still a number
             while (line[0] > 48 && line[0] < 58)
             {
                 number[numberIndex] = line[0];
                 line++; // move the pointer to the next character
                 numberIndex++;
             }
+            number[numberIndex] = '\0';
             printf("%s ", number);
             i = -1; // reset the search
             tokenList[ReplacementIndex].value = number;
@@ -81,8 +82,11 @@ char *ReplaceReplacements(char *line)
         {
             tokenList[ReplacementIndex].type = "string";
             printf("%c ", line[0]);
-            char newChar = *line;
-            tokenList[ReplacementIndex].value = &newChar;
+            // Set tokenList[ReplacementIndex].value to the first character of line
+            char newChar[2];
+            newChar[0] = line[0];
+            newChar[1] = '\0';
+            tokenList[ReplacementIndex].value = newChar;
 
             ReplacementIndex++;
             line++; // move the pointer to the next character
