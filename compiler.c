@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
 
-int currentLine = 0;
+int currentLine = 1;
 
 typedef struct Token
 {
@@ -40,9 +41,9 @@ Replacement replacementMap[19] = {
 
 // Define operators
 
-char *ReplaceReplacements(char *line)
+void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
 {
-    Token tokenList[256];
+    // Token tokenList[256];
     int ReplacementIndex = 0;
 
     for (size_t i = 0; i < sizeof(replacementMap); i++)
@@ -53,7 +54,6 @@ char *ReplaceReplacements(char *line)
         }
         if (strncmp(line, replacementMap[i].original, strlen(replacementMap[i].original)) == 0)
         {
-            printf("%s ", replacementMap[i].replacementToken.value);
             tokenList[ReplacementIndex] = replacementMap[i].replacementToken;
             ReplacementIndex++;
             line += strlen(replacementMap[i].original); // move the pointer to the next character
@@ -73,7 +73,6 @@ char *ReplaceReplacements(char *line)
                 numberIndex++;
             }
             number[numberIndex] = '\0';
-            printf("%s ", number);
             i = -1; // reset the search
             tokenList[ReplacementIndex].value = number;
             ReplacementIndex++;
@@ -81,54 +80,94 @@ char *ReplaceReplacements(char *line)
         else if (i == sizeof(replacementMap) / sizeof(replacementMap[0]) - 1) // If it is not a Replacement
         {
             tokenList[ReplacementIndex].type = "string";
-            printf("%c ", line[0]);
-            // Set tokenList[ReplacementIndex].value to the first character of line
-            char newChar[2];
-            newChar[0] = line[0];
-            newChar[1] = '\0';
+            char newChar[256];            // max length of a string is 256 characters
+            for (int i = 0; i < 256; i++) // for every character in the string
+            {
+                if (line[0] == 34 || line[0] == 39) // end string
+                {
+                    newChar[i] = '\0';
+                    // do not move the pointer to the next character so the closing quote token can be read
+                    break;
+                }
+                else if (line[0] == "\n" || line[0] == "\0") // end of line
+                {
+                    fprintf(stderr, "Error: string not closed on line %d\n", currentLine);
+                    exit(1);
+                }
+                else // not the end of string
+                {
+                    newChar[i] = line[0];
+                    line++; // move the pointer to the next character
+                }
+            }
+
             tokenList[ReplacementIndex].value = newChar;
 
             ReplacementIndex++;
-            line++; // move the pointer to the next character
             i = -1; // reset the search
         }
     }
-    printf("\nactual string start \n");
-    for (size_t i = 0; i < ReplacementIndex; i++)
-    {
-        printf("%s ", tokenList[i].value);
-    }
-    printf("\nactual string end \n");
-    return &tokenList;
+    *tokenCount = ReplacementIndex;
 }
 
-void parsetokenList(char *line)
-{
-    char tokenList[sizeof(line)] = "tokenList<";
-    for (size_t i = 0; i < sizeof(line); i++)
-    {
-        if (line[i] == "\"" || line[i] == "'")
-        {
-            line++;
-            tokenList[i + 8] = '>';
-            return tokenList;
-        }
-        else if (i != sizeof(line) - 1)
-        {
-            tokenList[i + 8] = line[i];
-            line++;
-        }
-        else
-        {
-            fprintf(stderr, "Error in line %d: tokenList not closed\n", currentLine);
-            return;
-        }
-    }
-}
-
-char *GenerateCode(char *program)
+char *CallFunction(Token *line)
 {
     char generatedCode[10000];
+
+    if (line[0].type != "function")
+    {
+        fprintf(stderr, "Error in line %d: CallFunction used with non-function\n", currentLine);
+        exit(1);
+    }
+    if (line[0].value == "PRINT")
+    {
+        strcat(generatedCode, "printf");
+        if (line[1].type == "symbol" && line[1].value == "LPAREN")
+        {
+            strcat(generatedCode, "(");
+            if (line[2].type == "string")
+            {
+                strcat(generatedCode, line[2].value);
+            }
+            else if (line[2].type == "number")
+            {
+                strcat(generatedCode, line[2].value);
+            }
+            else
+            {
+                fprintf(stderr, "Error in line %d: PRINT called with non-string or non-number\n", currentLine);
+                exit(1);
+            }
+            if (line[3].type == "symbol" && line[3].value == "RPAREN")
+            {
+                strcat(generatedCode, ")");
+                line += 4; // move the pointer to the next character after the closing parenthesis
+            }
+            else
+            {
+                fprintf(stderr, "Error in line %d: PRINT called with no closing parenthesis\n", currentLine);
+                exit(1);
+            }
+        }
+    }
+    return &generatedCode;
+}
+
+char *GenerateCode(Token *program)
+{
+    char *generatedCode;
+    for (int i = 0; i < sizeof(program); i++) // for token in program
+    {
+        Token token = program[i];
+        if (token.type == "function")
+        {
+            strcat(generatedCode, CallFunction(program));
+        }
+        if (token.type == "symbol" && token.value == "EOL")
+        {
+            strcat(generatedCode, ";\n");
+        }
+    }
 
     return &generatedCode;
 }
@@ -150,14 +189,15 @@ int main()
     printf("int main()\n{\n");
 
     // Read and print each line
-    while (fgets(line, sizeof(line), file) != NULL)
+    while (fgets(line, sizeof(line), file) != NULL) // for every line in the file
     {
-        char *Replacements = ReplaceReplacements(line);
-
-        for (size_t i = 0; i < sizeof(Replacements) / sizeof(Replacements[0]); i++)
+        Token Replacements[256];
+        int tokenCount = 100;
+        ReplaceReplacements(line, Replacements, &tokenCount); // replace the replacements in the line with their tokens
+        for (size_t i = 0; i < tokenCount; i++)               // for every token in the line
         {
             // printf("accessing Replacement %d ", i);
-            // printf("%s\n", Replacements[i]);
+            printf("%s ", Replacements[i].value);
         }
         currentLine++;
     }
