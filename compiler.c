@@ -110,19 +110,19 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
     *tokenCount = ReplacementIndex;
 }
 
-char *CallFunction(Token *line)
+char *CallFunction(Token *line, int size)
 {
     char generatedCode[10000];
 
-    if (line[0].type != "function")
+    if (strcmp(line[0].type, "function") != 0)
     {
         fprintf(stderr, "Error in line %d: CallFunction used with non-function\n", currentLine);
         exit(1);
     }
-    if (line[0].value == "PRINT")
+    if (strcmp(line[0].value, "PRINT") == 0)
     {
         strcat(generatedCode, "printf");
-        if (line[1].type == "symbol" && line[1].value == "LPAREN")
+        if (strcmp(line[1].type, "symbol") == 0 && strcmp(line[1].value, "LPAREN") == 0)
         {
             strcat(generatedCode, "(");
             if (line[2].type == "string")
@@ -135,7 +135,7 @@ char *CallFunction(Token *line)
             }
             else
             {
-                fprintf(stderr, "Error in line %d: PRINT called with non-string or non-number\n", currentLine);
+                fprintf(stderr, "Error in line %d: PRINT called with non-string or non-number type %c\n", currentLine, line[2].type);
                 exit(1);
             }
             if (line[3].type == "symbol" && line[3].value == "RPAREN")
@@ -153,15 +153,15 @@ char *CallFunction(Token *line)
     return &generatedCode;
 }
 
-char *GenerateCode(Token *program)
+char *GenerateCode(Token *program, int size)
 {
     char *generatedCode;
-    for (int i = 0; i < sizeof(program); i++) // for token in program
+    for (int i = 0; i < size; i++) // for token in program
     {
         Token token = program[i];
-        if (token.type == "function")
+        if (token.type == "function" && token.value == "PRINT") // only for print function temporarily
         {
-            strcat(generatedCode, CallFunction(program));
+            strcat(generatedCode, CallFunction(program, size));
         }
         if (token.type == "symbol" && token.value == "EOL")
         {
@@ -194,11 +194,21 @@ int main()
         Token Replacements[256];
         int tokenCount = 100;
         ReplaceReplacements(line, Replacements, &tokenCount); // replace the replacements in the line with their tokens
-        for (size_t i = 0; i < tokenCount; i++)               // for every token in the line
+
+        Token trimmedReplacements[tokenCount];
+        for (size_t i = 0; i < tokenCount; i++) // for every token in the line
         {
-            // printf("accessing Replacement %d ", i);
-            printf("%s ", Replacements[i].value);
+            trimmedReplacements[i] = Replacements[i];
         }
+
+        for (size_t i = 0; i < tokenCount; i++) // for every token in the line
+        {
+            printf("%s ", trimmedReplacements[i].value);
+        }
+        printf("\n");
+
+        GenerateCode(trimmedReplacements, tokenCount);
+
         currentLine++;
     }
 

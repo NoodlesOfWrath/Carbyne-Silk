@@ -1,4 +1,5 @@
+print("bad")
 if(56==58)
 {
-    print('b')
+    print("math broke")
 }
