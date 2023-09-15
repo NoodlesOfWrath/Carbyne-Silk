@@ -63,16 +63,14 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
         else if (i == 0 && line[0] > 48 && line[0] < 58) // If it is a number
         {
             tokenList[ReplacementIndex].type = "number"; // assign the type of the next token to number
-            char number[256];
-            int numberIndex = 0;
+            int number = 0;
             // check if the next character is still a number
             while (line[0] > 48 && line[0] < 58)
             {
-                number[numberIndex] = line[0];
-                line++; // move the pointer to the next character
-                numberIndex++;
+                number *= 10;           // shift the number over one place
+                number += line[0] - 48; // convert the character to an integer
+                line++;                 // move the pointer to the next character
             }
-            number[numberIndex] = '\0';
             i = -1; // reset the search
             tokenList[ReplacementIndex].value = number;
             ReplacementIndex++;
@@ -80,7 +78,7 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
         else if (i == sizeof(replacementMap) / sizeof(replacementMap[0]) - 1) // If it is not a Replacement
         {
             tokenList[ReplacementIndex].type = "string";
-            char *newChar = malloc(256);  // max length of a string is 256 characters
+            char *newChar = 0;            // max length of a string is 256 characters
             for (int i = 0; i < 256; i++) // for every character in the string
             {
                 if (line[0] == 34 || line[0] == 39) // end string
@@ -97,7 +95,6 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
                 else // not the end of string
                 {
                     newChar[i] = line[0];
-                    printf("it is a %c ", newChar[i]);
                     line++; // move the pointer to the next character
                 }
             }
@@ -201,7 +198,14 @@ int main()
         for (size_t i = 0; i < tokenCount; i++) // for every token in the line
         {
             trimmedReplacements[i] = Replacements[i];
-            printf("%s ", trimmedReplacements[i].value);
+            if (trimmedReplacements[i].type == "number")
+            {
+                printf("%d ", trimmedReplacements[i].value);
+            }
+            else
+            {
+                printf("%s ", trimmedReplacements[i].value);
+            }
         }
         printf("\n");
 
