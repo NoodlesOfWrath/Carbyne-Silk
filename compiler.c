@@ -46,9 +46,9 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
     // Token tokenList[256];
     int ReplacementIndex = 0;
 
-    for (size_t i = 0; i < sizeof(replacementMap); i++)
+    for (size_t i = 0; i < sizeof(replacementMap) / sizeof(replacementMap[0]); i++)
     {
-        if (line[0] == 0)
+        if (line[0] == 0) // null character
         {
             break;
         }
@@ -80,7 +80,7 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
         else if (i == sizeof(replacementMap) / sizeof(replacementMap[0]) - 1) // If it is not a Replacement
         {
             tokenList[ReplacementIndex].type = "string";
-            char newChar[256];            // max length of a string is 256 characters
+            char *newChar = malloc(256);  // max length of a string is 256 characters
             for (int i = 0; i < 256; i++) // for every character in the string
             {
                 if (line[0] == 34 || line[0] == 39) // end string
@@ -97,6 +97,7 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
                 else // not the end of string
                 {
                     newChar[i] = line[0];
+                    printf("it is a %c ", newChar[i]);
                     line++; // move the pointer to the next character
                 }
             }
@@ -110,7 +111,7 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
     *tokenCount = ReplacementIndex;
 }
 
-char *CallFunction(Token *line, int size)
+char *CallFunction(Token line[], int size)
 {
     char generatedCode[10000];
 
@@ -196,13 +197,10 @@ int main()
         ReplaceReplacements(line, Replacements, &tokenCount); // replace the replacements in the line with their tokens
 
         Token trimmedReplacements[tokenCount];
-        for (size_t i = 0; i < tokenCount; i++) // for every token in the line
-        {
-            trimmedReplacements[i] = Replacements[i];
-        }
 
         for (size_t i = 0; i < tokenCount; i++) // for every token in the line
         {
+            trimmedReplacements[i] = Replacements[i];
             printf("%s ", trimmedReplacements[i].value);
         }
         printf("\n");
