@@ -78,7 +78,7 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
         else if (i == sizeof(replacementMap) / sizeof(replacementMap[0]) - 1) // If it is not a Replacement
         {
             tokenList[ReplacementIndex].type = "string";
-            char *newChar = 0;            // max length of a string is 256 characters
+            char *newChar = malloc(256);  // max length of a string is 256 characters
             for (int i = 0; i < 256; i++) // for every character in the string
             {
                 if (line[0] == 34 || line[0] == 39) // end string
@@ -108,7 +108,7 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
     *tokenCount = ReplacementIndex;
 }
 
-char *CallFunction(Token line[], int size)
+char *CallFunction(Token *line, int size)
 {
     char generatedCode[10000];
 
