@@ -1,5 +1,1 @@
 print("bad")
-if(56==58)
-{
-    print("math broke")
-}

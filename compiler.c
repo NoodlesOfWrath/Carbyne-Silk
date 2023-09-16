@@ -110,7 +110,10 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
 
 char *CallFunction(Token *line, int size)
 {
-    char generatedCode[10000];
+    char *generatedCode = malloc(1000);
+    memset(generatedCode, 0, 1000); // clear the string
+
+    printf("%s", generatedCode);
 
     if (strcmp(line[0].type, "function") != 0)
     {
@@ -123,51 +126,87 @@ char *CallFunction(Token *line, int size)
         if (strcmp(line[1].type, "symbol") == 0 && strcmp(line[1].value, "LPAREN") == 0)
         {
             strcat(generatedCode, "(");
-            if (line[2].type == "string")
-            {
-                strcat(generatedCode, line[2].value);
-            }
-            else if (line[2].type == "number")
-            {
-                strcat(generatedCode, line[2].value);
-            }
-            else
-            {
-                fprintf(stderr, "Error in line %d: PRINT called with non-string or non-number type %c\n", currentLine, line[2].type);
-                exit(1);
-            }
-            if (line[3].type == "symbol" && line[3].value == "RPAREN")
-            {
-                strcat(generatedCode, ")");
-                line += 4; // move the pointer to the next character after the closing parenthesis
-            }
-            else
-            {
-                fprintf(stderr, "Error in line %d: PRINT called with no closing parenthesis\n", currentLine);
-                exit(1);
-            }
+        }
+        else
+        {
+            fprintf(stderr, "Error in line %d: PRINT called with no opening parenthesis\n", currentLine);
+            exit(1);
+        }
+        if (strcmp(line[2].type, "symbol") == 0 && strcmp(line[2].value, "QUOTE") == 0)
+        {
+            strcat(generatedCode, "\"");
+        }
+        else
+        {
+            fprintf(stderr, "Error in line %d: PRINT called with no opening quote\n", currentLine);
+            exit(1);
+        }
+        if (strcmp(line[3].type, "string") == 0)
+        {
+            strcat(generatedCode, line[3].value);
+        }
+        else
+        {
+            fprintf(stderr, "Error in line %d: PRINT called with non-string or non-number type %c\n", currentLine, line[2].type);
+            exit(1);
+        }
+        if (strcmp(line[4].type, "symbol") == 0 && strcmp(line[4].value, "QUOTE") == 0)
+        {
+            strcat(generatedCode, "\"");
+        }
+        else
+        {
+            fprintf(stderr, "Error in line %d: PRINT called with no closing quote\n", currentLine);
+            exit(1);
+        }
+        if (strcmp(line[5].type, "symbol") == 0 && strcmp(line[5].value, "RPAREN") == 0)
+        {
+            strcat(generatedCode, ")");
+            line += 6; // move the pointer to the next character after the closing parenthesis
+        }
+        else
+        {
+            fprintf(stderr, "Error in line %d: PRINT called with no closing parenthesis\n", currentLine);
+            exit(1);
         }
     }
-    return &generatedCode;
+    return generatedCode;
 }
 
 char *GenerateCode(Token *program, int size)
 {
-    char *generatedCode;
+    char *generatedCode = malloc(1000);
+    memset(generatedCode, 0, 1000); // clear the string
+
     for (int i = 0; i < size; i++) // for token in program
     {
         Token token = program[i];
-        if (token.type == "function" && token.value == "PRINT") // only for print function temporarily
+        if (strcmp(token.type, "function") == 0 && strcmp(token.value, "PRINT") == 0) // only for print function temporarily
         {
             strcat(generatedCode, CallFunction(program, size));
         }
-        if (token.type == "symbol" && token.value == "EOL")
+        if (strcmp(token.type, "symbol") == 0 && strcmp(token.value, "EOL") == 0)
         {
             strcat(generatedCode, ";\n");
         }
     }
 
-    return &generatedCode;
+    return generatedCode;
+}
+
+void printTokens(Token *tokens, int tokenCount)
+{
+    for (size_t i = 0; i < tokenCount; i++) // for every token in the line
+    {
+        if (tokens[i].type == "number")
+        {
+            printf("%d ", tokens[i].value);
+        }
+        else
+        {
+            printf("%s ", tokens[i].value);
+        }
+    }
 }
 
 int main()
@@ -193,31 +232,21 @@ int main()
         int tokenCount = 100;
         ReplaceReplacements(line, Replacements, &tokenCount); // replace the replacements in the line with their tokens
 
-        Token trimmedReplacements[tokenCount];
+        Token *trimmedReplacements = malloc(tokenCount * sizeof(Token));
 
         for (size_t i = 0; i < tokenCount; i++) // for every token in the line
         {
             trimmedReplacements[i] = Replacements[i];
-            if (trimmedReplacements[i].type == "number")
-            {
-                printf("%d ", trimmedReplacements[i].value);
-            }
-            else
-            {
-                printf("%s ", trimmedReplacements[i].value);
-            }
         }
+
         printf("\n");
 
-        GenerateCode(trimmedReplacements, tokenCount);
+        printf("%s ", GenerateCode(trimmedReplacements, tokenCount));
 
         currentLine++;
     }
 
     printf("\n return 0;\n}\n");
-
-    // Close the file
-    fclose(file);
 
     return 0;
 }
