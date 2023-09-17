@@ -45,27 +45,78 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
 {
     // Token tokenList[256];
     int ReplacementIndex = 0;
+    bool isString = false;
+    bool justEndedString = false;
 
-    for (size_t i = 0; i < sizeof(replacementMap) / sizeof(replacementMap[0]); i++)
+    for (int i = 0; i < sizeof(replacementMap) / sizeof(replacementMap[0]); i++)
     {
         if (line[0] == 0) // null character
         {
             break;
         }
-        if (strncmp(line, replacementMap[i].original, strlen(replacementMap[i].original)) == 0)
+        else if (isString) // if the current character is part of a string
+        {
+            tokenList[ReplacementIndex].type = "string";
+            char *newChar = malloc(256); // max length of a string is 256 characters
+            memset(newChar, 0, 256);     // clear the string
+
+            for (int j = 0; j < 256; j++) // for every character in the string
+            {
+                if (line[0] == 34 || line[0] == 39) // end string
+                {
+                    newChar[j] = '\0';
+                    isString = false;
+                    justEndedString = true;
+                    // do not move the pointer to the next character so the closing quote token can be read
+                    break;
+                }
+                else if (line[0] == "\n" || line[0] == "\0") // end of line
+                {
+                    fprintf(stderr, "Error: string not closed on line %d\n", currentLine);
+                    exit(1);
+                }
+                else // not the end of string
+                {
+                    newChar[j] = line[0];
+                    line++; // move the pointer to the next character
+                }
+            }
+
+            if (strlen(newChar) == 0) // if the string is empty
+            {
+                newChar[0] = "";
+            }
+
+            tokenList[ReplacementIndex].value = newChar;
+
+            ReplacementIndex++;
+            i = -1; // reset the search
+        }
+        else if (strncmp(line, replacementMap[i].original, strlen(replacementMap[i].original)) == 0)
         {
             tokenList[ReplacementIndex] = replacementMap[i].replacementToken;
+            if (strcmp(tokenList[ReplacementIndex].value, "QUOTE") == 0) // if the token is a quote
+            {
+                if (!justEndedString)
+                {
+                    isString = !isString;
+                }
+                else
+                {
+                    justEndedString = false;
+                }
+            }
             ReplacementIndex++;
             line += strlen(replacementMap[i].original); // move the pointer to the next character
             i = -1;                                     // reset the search
         }
         // check if it is a digit
-        else if (i == 0 && line[0] > 48 && line[0] < 58) // If it is a number
+        else if (i == 0 && line[0] > 47 && line[0] < 58) // If it is a number
         {
             tokenList[ReplacementIndex].type = "number"; // assign the type of the next token to number
             int number = 0;
             // check if the next character is still a number
-            while (line[0] > 48 && line[0] < 58)
+            while (line[0] > 47 && line[0] < 58)
             {
                 number *= 10;           // shift the number over one place
                 number += line[0] - 48; // convert the character to an integer
@@ -77,43 +128,17 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
         }
         else if (i == sizeof(replacementMap) / sizeof(replacementMap[0]) - 1) // If it is not a Replacement
         {
-            tokenList[ReplacementIndex].type = "string";
-            char *newChar = malloc(256);  // max length of a string is 256 characters
-            for (int i = 0; i < 256; i++) // for every character in the string
-            {
-                if (line[0] == 34 || line[0] == 39) // end string
-                {
-                    newChar[i] = '\0';
-                    // do not move the pointer to the next character so the closing quote token can be read
-                    break;
-                }
-                else if (line[0] == "\n" || line[0] == "\0") // end of line
-                {
-                    fprintf(stderr, "Error: string not closed on line %d\n", currentLine);
-                    exit(1);
-                }
-                else // not the end of string
-                {
-                    newChar[i] = line[0];
-                    line++; // move the pointer to the next character
-                }
-            }
-
-            tokenList[ReplacementIndex].value = newChar;
-
-            ReplacementIndex++;
-            i = -1; // reset the search
+            fprintf(stderr, "Error: unknown character %c on line %d\n", line[0], currentLine);
+            exit(1);
         }
     }
     *tokenCount = ReplacementIndex;
 }
 
-char *CallFunction(Token *line, int size)
+char *CompilePrint(Token *line, int tokenCount)
 {
-    char *generatedCode = malloc(1000);
-    memset(generatedCode, 0, 1000); // clear the string
-
-    printf("%s", generatedCode);
+    char *generatedCode = malloc(10000);
+    memset(generatedCode, 0, 10000); // clear the string
 
     if (strcmp(line[0].type, "function") != 0)
     {
@@ -143,15 +168,23 @@ char *CallFunction(Token *line, int size)
         }
         if (strcmp(line[3].type, "string") == 0)
         {
-            strcat(generatedCode, line[3].value);
+            if (strlen(line[3].value) != 0)
+            {
+                strcat(generatedCode, line[3].value);
+            }
+            else
+            {
+                strcat(generatedCode, "");
+            }
         }
         else
         {
-            fprintf(stderr, "Error in line %d: PRINT called with non-string or non-number type %c\n", currentLine, line[2].type);
+            fprintf(stderr, "Error in line %d: print called with non-string or non-number type %s %s\n", currentLine, line[3].type, line[3].value);
             exit(1);
         }
         if (strcmp(line[4].type, "symbol") == 0 && strcmp(line[4].value, "QUOTE") == 0)
         {
+            strcat(generatedCode, "\\n"); // add a newline
             strcat(generatedCode, "\"");
         }
         else
@@ -173,10 +206,18 @@ char *CallFunction(Token *line, int size)
     return generatedCode;
 }
 
+char *CallFunction(Token *line, int size)
+{
+    if (strcmp(line[0].type, "function") == 0 && strcmp(line[0].value, "PRINT") == 0)
+    {
+        return CompilePrint(line, size);
+    }
+}
+
 char *GenerateCode(Token *program, int size)
 {
-    char *generatedCode = malloc(1000);
-    memset(generatedCode, 0, 1000); // clear the string
+    char *generatedCode = malloc(10000);
+    memset(generatedCode, 0, 10000); // clear the string
 
     for (int i = 0; i < size; i++) // for token in program
     {
@@ -198,6 +239,8 @@ void printTokens(Token *tokens, int tokenCount)
 {
     for (size_t i = 0; i < tokenCount; i++) // for every token in the line
     {
+        printf("%s :", tokens[i].type);
+
         if (tokens[i].type == "number")
         {
             printf("%d ", tokens[i].value);
@@ -212,7 +255,7 @@ void printTokens(Token *tokens, int tokenCount)
 int main()
 {
     FILE *file;
-    char line[100]; // Assuming a maximum line length of 100 characters
+    char line[100]; // Assuming a maximum line length of 1000 characters
 
     // Open the file for reading
     file = fopen("test.cbs", "r");
@@ -229,17 +272,28 @@ int main()
     while (fgets(line, sizeof(line), file) != NULL) // for every line in the file
     {
         Token Replacements[256];
-        int tokenCount = 100;
+        int tokenCount = 0;
         ReplaceReplacements(line, Replacements, &tokenCount); // replace the replacements in the line with their tokens
 
         Token *trimmedReplacements = malloc(tokenCount * sizeof(Token));
 
+        int trimmedReplacementsIndex = 0;
         for (size_t i = 0; i < tokenCount; i++) // for every token in the line
         {
-            trimmedReplacements[i] = Replacements[i];
+            if (strcmp(Replacements[i].type, "replacement") != 0 && strcmp(Replacements[i].value, "") != 0)
+            {
+                trimmedReplacements[trimmedReplacementsIndex] = Replacements[i];
+                trimmedReplacementsIndex++;
+            }
+            else
+            {
+                tokenCount--; // remove the token from the count
+            }
         }
 
         printf("\n");
+
+        // printTokens(trimmedReplacements, tokenCount);
 
         printf("%s ", GenerateCode(trimmedReplacements, tokenCount));
 
