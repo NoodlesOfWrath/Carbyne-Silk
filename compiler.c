@@ -135,10 +135,108 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
     *tokenCount = ReplacementIndex;
 }
 
+typedef struct Syntax
+{
+    Token *tokens;
+    char *code;
+} Syntax;
+
+// replace $$ with the value of the token
+char *ReplaceDollarDollar(char *code, int charLen, Token *tokens, int tokenLen)
+{
+    char *newCode = malloc(10000);
+    memset(newCode, 0, 10000); // clear the string
+    char *dollarDollar = strstr(code, "$$");
+    for (int i = 0; i < charLen; i++)
+    {
+        if (strncmp(code, "$$", 2) == 0)
+        {
+            // check if the next char is a number
+            if (code[2] > 47 && code[2] < 58)
+            {
+                int tokenIndex = 0;
+                int tokenNumber = 0;
+                while (code[2] > 47 && code[2] < 58)
+                {
+                    tokenNumber *= 10;           // shift the number over one place
+                    tokenNumber += code[2] - 48; // convert the character to an integer
+                    code++;                      // move the pointer to the next character
+                }
+                if (tokenNumber > tokenLen)
+                {
+                    fprintf(stderr, "Error in line %d: $$%d used with only %d tokens\n", currentLine, tokenNumber, tokenLen);
+                    exit(1);
+                }
+                else
+                {
+                    // split into two strings and then put the token in the middle
+                    char *token = strtok(tokens[tokenNumber].value, "$$"); // remove the newline from the end of the token
+                    while (token != NULL)
+                    {
+                        printf(" %s\n", token); // printing each token
+                        token = strtok(tokens[tokenNumber].value, "$$");
+                    }
+                    strcat(newCode, tokens[tokenNumber].value);
+                }
+            }
+            else
+            {
+                fprintf(stderr, "Error in line %d: $$ used with no number\n", currentLine);
+                exit(1);
+            }
+        }
+        else
+        {
+            code += 1;
+        }
+    }
+    return newCode;
+}
+
+// make the tree for the print function
+
 char *CompilePrint(Token *line, int tokenCount)
 {
     char *generatedCode = malloc(10000);
     memset(generatedCode, 0, 10000); // clear the string
+    // NULL means that the value does not matter
+    Token stringPrintSyntax[6] = {{"function", "PRINT"}, {"symbol", "LPAREN"}, {"symbol", "QUOTE"}, {"string", NULL}, {"symbol", "QUOTE"}, {"symbol", "RPAREN"}};
+    Token numberPrintSyntax[4] = {{"function", "PRINT"}, {"symbol", "LPAREN"}, {"number", NULL}, {"symbol", "RPAREN"}};
+    Syntax *possibleSyntaxes[2] = {{stringPrintSyntax, "printf(\"%s\\n\", $$4);"}, {numberPrintSyntax, "printf(\"%d\\n\", $$3);"}};
+
+    bool foundSyntax = false;
+    for (int i = 0; i < 2; i++)
+    {
+        Syntax *currentSyntax = possibleSyntaxes[i];
+        // loop through possible syntaxes
+        for (int j = 0; j < sizeof(currentSyntax) / sizeof(currentSyntax[0]); j++)
+        {
+            if (strcmp(line[j].type, currentSyntax->tokens[j].type) == 0)
+            {
+                if (currentSyntax->tokens[j]->value != NULL)
+                {
+                    if (strcmp(line[j].value, currentSyntax->tokens[j].value) == 0)
+                    {
+                        if (j == sizeof(currentSyntax) / sizeof(currentSyntax[0]) - 1) // if the last token matches
+                        {
+                            foundSyntax = true;
+                            strcat(generatedCode, ReplaceDollarDollar(currentSyntax->code));
+                            line += sizeof(currentSyntax) / sizeof(currentSyntax[0]); // move the pointer to the next character after the closing parenthesis
+                        }
+                        else
+                        {
+                            continue; // move on to the next token
+                        }
+                        continue; // move on to the next token
+                    }
+                }
+            }
+            else
+            {
+                break; // move on to the next syntax
+            }
+        }
+    }
 
     if (strcmp(line[0].type, "function") != 0)
     {
