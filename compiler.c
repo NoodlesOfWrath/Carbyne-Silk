@@ -151,15 +151,16 @@ char *ReplaceDollarDollar(char *code, int charLen, Token *tokens, int tokenLen)
     {
         if (strncmp(code, "$$", 2) == 0)
         {
+            code += 2;
             // check if the next char is a number
-            if (code[2] > 47 && code[2] < 58)
+            if (code[0] > 47 && code[0] < 58)
             {
                 int tokenIndex = 0;
                 int tokenNumber = 0;
-                while (code[2] > 47 && code[2] < 58)
+                while (code[0] > 47 && code[0] < 58)
                 {
                     tokenNumber *= 10;           // shift the number over one place
-                    tokenNumber += code[2] - 48; // convert the character to an integer
+                    tokenNumber += code[0] - 48; // convert the character to an integer
                     code++;                      // move the pointer to the next character
                 }
                 if (tokenNumber > tokenLen)
@@ -169,13 +170,6 @@ char *ReplaceDollarDollar(char *code, int charLen, Token *tokens, int tokenLen)
                 }
                 else
                 {
-                    // split into two strings and then put the token in the middle
-                    char *token = strtok(tokens[tokenNumber].value, "$$"); // remove the newline from the end of the token
-                    while (token != NULL)
-                    {
-                        printf(" %s\n", token); // printing each token
-                        token = strtok(tokens[tokenNumber].value, "$$");
-                    }
                     strcat(newCode, tokens[tokenNumber].value);
                 }
             }
@@ -187,7 +181,8 @@ char *ReplaceDollarDollar(char *code, int charLen, Token *tokens, int tokenLen)
         }
         else
         {
-            code += 1;
+            strncat(newCode, code, 1);
+            code++;
         }
     }
     return newCode;
@@ -213,14 +208,14 @@ char *CompilePrint(Token *line, int tokenCount)
         {
             if (strcmp(line[j].type, currentSyntax->tokens[j].type) == 0)
             {
-                if (currentSyntax->tokens[j]->value != NULL)
+                if (currentSyntax->tokens[j].value != NULL)
                 {
                     if (strcmp(line[j].value, currentSyntax->tokens[j].value) == 0)
                     {
                         if (j == sizeof(currentSyntax) / sizeof(currentSyntax[0]) - 1) // if the last token matches
                         {
                             foundSyntax = true;
-                            strcat(generatedCode, ReplaceDollarDollar(currentSyntax->code));
+                            strcat(generatedCode, ReplaceDollarDollar(currentSyntax->code, j, line, tokenCount));
                             line += sizeof(currentSyntax) / sizeof(currentSyntax[0]); // move the pointer to the next character after the closing parenthesis
                         }
                         else
@@ -393,7 +388,9 @@ int main()
 
         // printTokens(trimmedReplacements, tokenCount);
 
-        printf("%s ", GenerateCode(trimmedReplacements, tokenCount));
+        printf("%s", ReplaceDollarDollar("printf(\"$$3\\n\");", 15, trimmedReplacements, tokenCount));
+
+        // printf("%s ", GenerateCode(trimmedReplacements, tokenCount));
 
         currentLine++;
     }
