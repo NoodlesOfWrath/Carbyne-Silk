@@ -43,7 +43,6 @@ Replacement replacementMap[19] = {
 
 void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
 {
-    // Token tokenList[256];
     int ReplacementIndex = 0;
     bool isString = false;
     bool justEndedString = false;
@@ -114,13 +113,14 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
         else if (i == 0 && line[0] > 47 && line[0] < 58) // If it is a number
         {
             tokenList[ReplacementIndex].type = "number"; // assign the type of the next token to number
-            int number = 0;
+            int *number = malloc(sizeof(int));
+            *number = 0;
             // check if the next character is still a number
             while (line[0] > 47 && line[0] < 58)
             {
-                number *= 10;           // shift the number over one place
-                number += line[0] - 48; // convert the character to an integer
-                line++;                 // move the pointer to the next character
+                *number *= 10;           // shift the number over one place
+                *number += line[0] - 48; // convert the character to an integer
+                line++;                  // move the pointer to the next character
             }
             i = -1; // reset the search
             tokenList[ReplacementIndex].value = number;
@@ -138,6 +138,7 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
 typedef struct Syntax
 {
     Token *tokens;
+    int tokenCount;
     char *code;
 } Syntax;
 
@@ -170,7 +171,7 @@ char *ReplaceDollarDollar(char *code, int charLen, Token *tokens, int tokenLen)
                 }
                 else
                 {
-                    strcat(newCode, tokens[tokenNumber].value);
+                    strcat(newCode, printToken(tokens[tokenNumber]));
                 }
             }
             else
@@ -188,114 +189,73 @@ char *ReplaceDollarDollar(char *code, int charLen, Token *tokens, int tokenLen)
     return newCode;
 }
 
+printToken(Token token)
+{
+    char *output = malloc(100);
+    memset(output, 0, 100); // clear the string
+
+    if (strcmp(token.type, "string") == 0)
+    {
+        output = token.value;
+    }
+    else if (strcmp(token.type, "number") == 0)
+    {
+        sprintf(output, "%d", (int)*(token.value));
+    }
+    return output;
+}
 // make the tree for the print function
 
 char *CompilePrint(Token *line, int tokenCount)
 {
     char *generatedCode = malloc(10000);
     memset(generatedCode, 0, 10000); // clear the string
+
     // NULL means that the value does not matter
     Token stringPrintSyntax[6] = {{"function", "PRINT"}, {"symbol", "LPAREN"}, {"symbol", "QUOTE"}, {"string", NULL}, {"symbol", "QUOTE"}, {"symbol", "RPAREN"}};
     Token numberPrintSyntax[4] = {{"function", "PRINT"}, {"symbol", "LPAREN"}, {"number", NULL}, {"symbol", "RPAREN"}};
-    Syntax *possibleSyntaxes[2] = {{stringPrintSyntax, "printf(\"%s\\n\", $$4);"}, {numberPrintSyntax, "printf(\"%d\\n\", $$3);"}};
+    Syntax possibleSyntaxes[2] = {{stringPrintSyntax, 6, "printf(\"$$3\\n\");"}, {numberPrintSyntax, 4, "printf(\"%d\\n\", $$2);"}};
 
     bool foundSyntax = false;
-    for (int i = 0; i < 2; i++)
+    for (int syntaxIndex = 0; syntaxIndex < 2; syntaxIndex++)
     {
-        Syntax *currentSyntax = possibleSyntaxes[i];
+        Syntax *currentSyntax = &possibleSyntaxes[syntaxIndex];
+
         // loop through possible syntaxes
-        for (int j = 0; j < sizeof(currentSyntax) / sizeof(currentSyntax[0]); j++)
+        for (int j = 0; j < currentSyntax->tokenCount; j++)
         {
-            if (strcmp(line[j].type, currentSyntax->tokens[j].type) == 0)
+            if (strcmp(line[j].type, currentSyntax->tokens[j].type) == 0) // if the types match
             {
-                if (currentSyntax->tokens[j].value != NULL)
+                if (currentSyntax->tokens[j].value != NULL) // if the value matters
                 {
-                    if (strcmp(line[j].value, currentSyntax->tokens[j].value) == 0)
+                    if (strcmp(line[j].value, currentSyntax->tokens[j].value) != 0) // if the values don't match
                     {
-                        if (j == sizeof(currentSyntax) / sizeof(currentSyntax[0]) - 1) // if the last token matches
-                        {
-                            foundSyntax = true;
-                            strcat(generatedCode, ReplaceDollarDollar(currentSyntax->code, j, line, tokenCount));
-                            line += sizeof(currentSyntax) / sizeof(currentSyntax[0]); // move the pointer to the next character after the closing parenthesis
-                        }
-                        else
-                        {
-                            continue; // move on to the next token
-                        }
-                        continue; // move on to the next token
+                        break; // move on to the next syntax
                     }
                 }
+                if (j == currentSyntax->tokenCount - 1) // if this is the last token
+                {
+                    foundSyntax = true;
+                    strcat(generatedCode, ReplaceDollarDollar(currentSyntax->code, strlen(currentSyntax->code) - 3, line, tokenCount));
+                    // print everything about the replace dollar dollar function
+
+                    line += sizeof(currentSyntax) / sizeof(currentSyntax[0]); // move the pointer to the next character after the closing parenthesis
+                    return generatedCode;
+                }
             }
-            else
+            else // if the types don't match
             {
                 break; // move on to the next syntax
             }
         }
     }
 
-    if (strcmp(line[0].type, "function") != 0)
+    if (!foundSyntax) // if no syntax was found
     {
-        fprintf(stderr, "Error in line %d: CallFunction used with non-function\n", currentLine);
+        fprintf(stderr, "\nError in line %d: invalid syntax for print function\n", currentLine);
         exit(1);
     }
-    if (strcmp(line[0].value, "PRINT") == 0)
-    {
-        strcat(generatedCode, "printf");
-        if (strcmp(line[1].type, "symbol") == 0 && strcmp(line[1].value, "LPAREN") == 0)
-        {
-            strcat(generatedCode, "(");
-        }
-        else
-        {
-            fprintf(stderr, "Error in line %d: PRINT called with no opening parenthesis\n", currentLine);
-            exit(1);
-        }
-        if (strcmp(line[2].type, "symbol") == 0 && strcmp(line[2].value, "QUOTE") == 0)
-        {
-            strcat(generatedCode, "\"");
-        }
-        else
-        {
-            fprintf(stderr, "Error in line %d: PRINT called with no opening quote\n", currentLine);
-            exit(1);
-        }
-        if (strcmp(line[3].type, "string") == 0)
-        {
-            if (strlen(line[3].value) != 0)
-            {
-                strcat(generatedCode, line[3].value);
-            }
-            else
-            {
-                strcat(generatedCode, "");
-            }
-        }
-        else
-        {
-            fprintf(stderr, "Error in line %d: print called with non-string or non-number type %s %s\n", currentLine, line[3].type, line[3].value);
-            exit(1);
-        }
-        if (strcmp(line[4].type, "symbol") == 0 && strcmp(line[4].value, "QUOTE") == 0)
-        {
-            strcat(generatedCode, "\\n"); // add a newline
-            strcat(generatedCode, "\"");
-        }
-        else
-        {
-            fprintf(stderr, "Error in line %d: PRINT called with no closing quote\n", currentLine);
-            exit(1);
-        }
-        if (strcmp(line[5].type, "symbol") == 0 && strcmp(line[5].value, "RPAREN") == 0)
-        {
-            strcat(generatedCode, ")");
-            line += 6; // move the pointer to the next character after the closing parenthesis
-        }
-        else
-        {
-            fprintf(stderr, "Error in line %d: PRINT called with no closing parenthesis\n", currentLine);
-            exit(1);
-        }
-    }
+
     return generatedCode;
 }
 
@@ -388,9 +348,9 @@ int main()
 
         // printTokens(trimmedReplacements, tokenCount);
 
-        printf("%s", ReplaceDollarDollar("printf(\"$$3\\n\");", 15, trimmedReplacements, tokenCount));
+        // printf("%s", ReplaceDollarDollar("printf(\"$$3\n\");", 16, trimmedReplacements, tokenCount));
 
-        // printf("%s ", GenerateCode(trimmedReplacements, tokenCount));
+        printf("%s \n", GenerateCode(trimmedReplacements, tokenCount));
 
         currentLine++;
     }
