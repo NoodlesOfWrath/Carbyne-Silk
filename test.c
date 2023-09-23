@@ -1,5 +1,12 @@
 int main()
 {
+
+    for (int i = 0; i < 64; i++)
+    {
+
+        printf("%d\n", i);
+    }
+
     printf("If you can keep your head when all about you\n");
 
     printf("   Are losing theirs and blaming it on you;\n");

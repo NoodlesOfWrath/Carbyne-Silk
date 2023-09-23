@@ -1,3 +1,7 @@
+for i in range(1000000)
+{
+    print(i)
+}
 print("If you can keep your head when all about you")
 print("   Are losing theirs and blaming it on you;")
 print("If you can trust yourself when all men doubt you,")
@@ -34,3 +38,4 @@ print("With sixty seconds’ worth of distance run—")
 print("   Yours is the Earth and everything that’s in it,")
 print("And—which is more—you’ll be a Man, my son!")
 print(58)
+
