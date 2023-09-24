@@ -8,7 +8,7 @@ int currentLine = 1;
 typedef struct Token
 {
     char *type;
-    char *value;
+    void *value;
 } Token;
 
 typedef struct Replacement
@@ -65,7 +65,7 @@ void *ReplaceReplacements(char *line, Token *tokenList, int *tokenCount)
 
             for (int j = 0; j < 256; j++) // for every character in the string
             {
-                if (line[0] == 34 || line[0] == 39) // end string
+                if (line[0] == 34 || line[0] == 39) // quotes; end string
                 {
                     newChar[j] = '\0';
                     isString = false;
@@ -227,7 +227,7 @@ TokenToString(Token token)
     }
     else if (strcmp(token.type, "number") == 0)
     {
-        sprintf(output, "%d", (int)*(token.value));
+        sprintf(output, "%d", *((int *)(token.value)));
     }
     return output;
 }
@@ -367,7 +367,7 @@ char *GenerateCode(Token *program, int size)
     return generatedCode;
 }
 
-void printTokens(Token *tokens, int tokenCount)
+void PrintTokens(Token *tokens, int tokenCount)
 {
     Token replacementsTemp[tokenCount];
     for (size_t i = 0; i < tokenCount; i++) // for every token in the line
@@ -380,7 +380,7 @@ void printTokens(Token *tokens, int tokenCount)
 
         if (strcmp(tokens[i].type, "number") == 0)
         {
-            printf("%d ", *tokens[i].value);
+            printf("%d ", *((int *)(tokens[i].value)));
         }
         else
         {
@@ -432,7 +432,7 @@ int main()
 
         printf("\n");
 
-        // printTokens(trimmedReplacements, newTokenCount);
+        // PrintTokens(trimmedReplacements, newTokenCount);
 
         // printf("%s", ReplaceDollarDollar("for(int $$1 = 0; $$1 < $$5; $$1++){", 32, trimmedReplacements, newTokenCount));
 
